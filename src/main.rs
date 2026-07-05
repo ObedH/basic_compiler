@@ -6,8 +6,8 @@ use basic_compiler::parse::Parser;
 use basic_compiler::codegen::x86_64::CodeGeneratorX86_64;
 
 fn main() {
-    let input_path: &str = "tests/hello_world.b";
-    let output_path: &str = "asm/hello_world.s";
+    let input_path: &str = "tests/orderops.b";
+    let output_path: &str = "asm/orderops.s";
     println!("Opening source file: {}", input_path);
 
     let file: String = fs::read_to_string(input_path).expect(&format!("Should be able to open {}", input_path));

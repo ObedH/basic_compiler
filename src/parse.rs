@@ -31,6 +31,7 @@ impl Parser {
     }
     fn parse_statement(&mut self) -> Option<Statement> {
         if self.match_token(vec![TokenKind::Disp]) { return self.parse_disp(); }
+        if self.match_token(vec![TokenKind::Newline]) { return None; }
 
         None
     }
