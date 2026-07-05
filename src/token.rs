@@ -53,12 +53,16 @@ pub enum TokenKind {
     Plus,
     Slash,
     Star,
+    Bang,
     BangEqual,
-    EqualEqual,
+    Equal,
     Less,
     LessEqual,
     Greater,
     GreaterEqual,
+    And,
+    Or,
+    Xor,
     
     NumberLit(f32),
     StringLit(String),
@@ -66,5 +70,5 @@ pub enum TokenKind {
 
     Newline,
     Error(String),
-    Eof
+    EOF
 }

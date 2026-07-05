@@ -26,7 +26,7 @@ impl<'a> Lexer<'a> {
             lexer.scan_token();
         }
 
-        lexer.tokens.push(Token::new(TokenKind::Eof, Span::new(lexer.pos, lexer.pos)));
+        lexer.tokens.push(Token::new(TokenKind::EOF, Span::new(lexer.pos, lexer.pos)));
 
         lexer.tokens
     }
@@ -42,9 +42,9 @@ impl<'a> Lexer<'a> {
             '-'      => TokenKind::Minus,
             '*'      => TokenKind::Star,
             '/'      => TokenKind::Slash,
+            '='      => TokenKind::Equal,
             '\n'     => TokenKind::Newline,
-            '!'      => if self.match_char('=') { TokenKind::BangEqual }    else { TokenKind::Error(self.current_lexeme().to_owned()) },
-            '='      => if self.match_char('=') { TokenKind::EqualEqual }   else { TokenKind::Error(self.current_lexeme().to_owned()) },
+            '!'      => if self.match_char('=') { TokenKind::BangEqual }    else { TokenKind::Bang },
             '>'      => if self.match_char('=') { TokenKind::GreaterEqual } else { TokenKind::Greater },
             '<'      => if self.match_char('=') { TokenKind::LessEqual }    else { TokenKind::Less },
             '"'      => self.scan_string(),
@@ -137,6 +137,9 @@ impl<'a> Lexer<'a> {
             "Lbl"   => TokenKind::Lbl,
             "Goto"  => TokenKind::Goto,
             "Disp"  => TokenKind::Disp,
+            "And"   => TokenKind::And,
+            "Or"    => TokenKind::Or,
+            "Xor"   => TokenKind::Xor,
             _ if keyword.len() == 1 && keyword.chars().next().map_or(false, |c| c.is_uppercase()) => TokenKind::Var(keyword.chars().next().unwrap()),
             _       => TokenKind::Error(keyword.to_owned()),
         }
