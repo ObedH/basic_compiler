@@ -33,6 +33,19 @@ impl Parser {
         if self.match_token(vec![TokenKind::Disp]) { return self.parse_disp(); }
         if self.match_token(vec![TokenKind::Newline]) { return None; }
 
+        let expr = self.parse_expression();
+
+        if self.match_token(vec![TokenKind::Arrow]) {
+            match self.parse_assign_target() {
+                Some(v) => return Some(Statement::Assign { target: v, source: match expr {
+                        Some(v) => v,
+                        None    => return None,
+                    }
+                }),
+                None => return None,
+            }
+        }
+
         None
     }
     fn parse_disp(&mut self) -> Option<Statement> {
@@ -142,7 +155,20 @@ impl Parser {
                 _ => None,
             };
         }
-
+        if self.match_token(vec![TokenKind::Var('A')]) {
+            return match self.previous().kind {
+                TokenKind::Var(val) => match val {
+                    'A'..'Z' => Some(Expression::RealVariable(
+                        match RealVar::from_char(val) {
+                            Some(var) => var,
+                            None      => return None,
+                        },
+                    )),
+                    _ => None,
+                },
+                _ => None,
+            };
+        }
         if self.match_token(vec![TokenKind::LParen]) {
             let expr = self.parse_expression();
             self.consume(TokenKind::RParen, "Expected ')' after expression.");
@@ -150,6 +176,17 @@ impl Parser {
         }
 
         None
+    }
+    fn parse_assign_target(&mut self) -> Option<AssignTarget> {
+        let target = self.advance();
+        return match target.kind {
+            TokenKind::Var(c) => Some(AssignTarget::RealVariable(match RealVar::from_char(c) {
+                    Some(v) => v,
+                    None    => return None,
+                }
+            )),
+            _                 => None,
+        };
     }
 
     fn is_at_end(&self) -> bool {

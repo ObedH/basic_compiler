@@ -63,6 +63,7 @@ pub enum TokenKind {
     And,
     Or,
     Xor,
+    Arrow,
     
     NumberLit(f32),
     StringLit(String),

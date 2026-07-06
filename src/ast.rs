@@ -109,6 +109,69 @@ pub enum RealVar {
     A, B, C, D, E, F, G, H, I, J, K, L, M,
     N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
 }
+impl RealVar {
+    pub fn from_char(c: char) -> Option<RealVar> {
+        match c {
+            'A' => Some(RealVar::A),
+            'B' => Some(RealVar::B),
+            'C' => Some(RealVar::C),
+            'D' => Some(RealVar::D),
+            'E' => Some(RealVar::E),
+            'F' => Some(RealVar::F),
+            'G' => Some(RealVar::G),
+            'H' => Some(RealVar::H),
+            'I' => Some(RealVar::I),
+            'J' => Some(RealVar::J),
+            'K' => Some(RealVar::K),
+            'L' => Some(RealVar::L),
+            'M' => Some(RealVar::M),
+            'N' => Some(RealVar::N),
+            'O' => Some(RealVar::O),
+            'P' => Some(RealVar::P),
+            'Q' => Some(RealVar::Q),
+            'R' => Some(RealVar::R),
+            'S' => Some(RealVar::S),
+            'T' => Some(RealVar::T),
+            'U' => Some(RealVar::U),
+            'V' => Some(RealVar::V),
+            'W' => Some(RealVar::W),
+            'X' => Some(RealVar::X),
+            'Y' => Some(RealVar::Y),
+            'Z' => Some(RealVar::Z),
+            _   => None,
+        }
+    }
+    pub fn to_char(var: RealVar) -> char {
+        match var {
+            RealVar::A => 'A',
+            RealVar::B => 'B',
+            RealVar::C => 'C',
+            RealVar::D => 'D',
+            RealVar::E => 'E',
+            RealVar::F => 'F',
+            RealVar::G => 'G',
+            RealVar::H => 'H',
+            RealVar::I => 'I',
+            RealVar::J => 'J',
+            RealVar::K => 'K',
+            RealVar::L => 'L',
+            RealVar::M => 'M',
+            RealVar::N => 'N',
+            RealVar::O => 'O',
+            RealVar::P => 'P',
+            RealVar::Q => 'Q',
+            RealVar::R => 'R',
+            RealVar::S => 'S',
+            RealVar::T => 'T',
+            RealVar::U => 'U',
+            RealVar::V => 'V',
+            RealVar::W => 'W',
+            RealVar::X => 'X',
+            RealVar::Y => 'Y',
+            RealVar::Z => 'Z',
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AssignTarget {

@@ -49,12 +49,21 @@ impl CodeGeneratorX86_64 {
 
         self.string_literals.push((".LC_NUM_FMT".to_string(), "%f\\n".to_string()));
         self.string_literals.push((".LC_STR_FMT".to_string(), "%s\\n".to_string()));
-
+        
+        self.gen_data_section();
         self.gen_text_section(program);
         self.gen_rodata_section();
     }
+    fn gen_data_section(&mut self) {
+        writeln!(self.writer, ".section .data").unwrap();
+        writeln!(self.writer, ".align 8").unwrap();
+        for byte in b'A'..b'Z' {
+            let letter = byte as char;
+            writeln!(self.writer, "VAR_{}:\t.double 0.0", letter).unwrap();
+        }
+    }
     fn gen_text_section(&mut self, program: Program) {
-        writeln!(self.writer, ".section .text").unwrap();
+        writeln!(self.writer, "\n.section .text").unwrap();
         writeln!(self.writer, "\t.global main").unwrap();
         self.gen_program(program);
     }
@@ -74,7 +83,8 @@ impl CodeGeneratorX86_64 {
     }
     fn gen_statement(&mut self, statement: Statement) {
         match statement {
-            Statement::Display(val) => self.gen_disp(val),
+            Statement::Display(val)               => self.gen_disp(val),
+            Statement::Assign { target, source }  => self.gen_assign(target, source),
             _                       => {}
         };
     }
@@ -92,23 +102,6 @@ impl CodeGeneratorX86_64 {
             },
             None => {},
         };
-    }
-    fn gen_num_disp(&mut self) {
-        // Pop value from stack
-        writeln!(self.writer, "\tmovsd (%rsp), %xmm0").unwrap();
-        writeln!(self.writer, "\taddq $16, %rsp").unwrap();
-
-        writeln!(self.writer, "\tlea .LC_NUM_FMT(%rip), %rdi").unwrap();
-        writeln!(self.writer, "\tmov $1, %al").unwrap();
-        writeln!(self.writer, "\tcall printf").unwrap();
-        writeln!(self.writer, "# Printed a number").unwrap();
-    }
-    fn gen_str_disp(&mut self) {
-        writeln!(self.writer, "\tpop %rsi").unwrap();
-        writeln!(self.writer, "\tlea .LC_STR_FMT(%rip), %rdi").unwrap();
-        writeln!(self.writer, "\tmov $0, %al").unwrap();
-        writeln!(self.writer, "\tcall printf").unwrap();
-        writeln!(self.writer, "# Printed a string").unwrap();
     }
     fn gen_expr(&mut self, val: Option<Expression>) -> Option<Type> {
         match val {
@@ -179,8 +172,8 @@ impl CodeGeneratorX86_64 {
     }
     fn gen_num_lit(&mut self, val: f32) -> Option<Type> {
         let num_label = self.new_float_label(val);
-        // Push value onto stack
         writeln!(self.writer, "\tmovsd {}(%rip), %xmm0", num_label).unwrap();
+        // Push value onto stack
         writeln!(self.writer, "\tsubq $16, %rsp").unwrap();
         writeln!(self.writer, "\tmovsd %xmm0, (%rsp)").unwrap();
         writeln!(self.writer, "# Evaluated: {}", val).unwrap();
@@ -194,7 +187,54 @@ impl CodeGeneratorX86_64 {
         Some(Type::Str)
     }
     fn gen_real_var(&mut self, var: RealVar) -> Option<Type> {
+        // Fetch global variable from .data section
+        writeln!(self.writer, "\tmovsd VAR_{}(%rip), %xmm0", RealVar::to_char(var.clone())).unwrap();
+        // Now push it onto the stack
+        writeln!(self.writer, "\tsubq $16, %rsp").unwrap();
+        writeln!(self.writer, "\tmovsd %xmm0, (%rsp)").unwrap();
+        writeln!(self.writer, "# Read variable: {}", RealVar::to_char(var.clone())).unwrap();
         Some(Type::Number)
+    }
+    fn gen_num_disp(&mut self) {
+        // Pop value from stack
+        writeln!(self.writer, "\tmovsd (%rsp), %xmm0").unwrap();
+        writeln!(self.writer, "\taddq $16, %rsp").unwrap();
+
+        writeln!(self.writer, "\tlea .LC_NUM_FMT(%rip), %rdi").unwrap();
+        writeln!(self.writer, "\tmov $1, %al").unwrap();
+        writeln!(self.writer, "\tcall printf").unwrap();
+        writeln!(self.writer, "# Printed a number").unwrap();
+    }
+    fn gen_str_disp(&mut self) {
+        writeln!(self.writer, "\tpop %rsi").unwrap();
+        writeln!(self.writer, "\tlea .LC_STR_FMT(%rip), %rdi").unwrap();
+        writeln!(self.writer, "\tmov $0, %al").unwrap();
+        writeln!(self.writer, "\tcall printf").unwrap();
+        writeln!(self.writer, "# Printed a string").unwrap();
+    }
+    fn gen_assign(&mut self, target: AssignTarget, source: Expression) {
+        let expr = self.gen_expr(Some(source));
+        match expr {
+            Some(t) => match t {
+                    Type::Number => {},
+                    Type::Str    => return,
+                },
+            None => return,
+        };
+
+        // Pop value from stack
+        writeln!(self.writer, "\tmovsd (%rsp), %xmm0").unwrap();
+        writeln!(self.writer, "\taddq $16, %rsp").unwrap();
+
+        self.gen_assign_target(target);
+    }
+    fn gen_assign_target(&mut self, target: AssignTarget) {
+        match target {
+            AssignTarget::RealVariable(real_var) => {
+                writeln!(self.writer, "\tmovsd %xmm0, VAR_{}(%rip)", RealVar::to_char(real_var.clone())).unwrap();
+                writeln!(self.writer, "# Wrote to variable {}", RealVar::to_char(real_var.clone())).unwrap();
+            },
+        };
     }
     fn gen_rodata_section(&mut self) {
         writeln!(self.writer, "\n.section .rodata").unwrap();
