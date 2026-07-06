@@ -83,8 +83,9 @@ impl CodeGeneratorX86_64 {
     }
     fn gen_statement(&mut self, statement: Statement) {
         match statement {
-            Statement::Display(val)               => self.gen_disp(val),
-            Statement::Assign { target, source }  => self.gen_assign(target, source),
+            Statement::Display(val)                                 => self.gen_disp(val),
+            Statement::Assign { target, source }                    => self.gen_assign(target, source),
+            Statement::If { condition, consequence, alternative }   => self.gen_if(condition, consequence, alternative),
             _                       => {}
         };
     }
@@ -235,6 +236,44 @@ impl CodeGeneratorX86_64 {
                 writeln!(self.writer, "# Wrote to variable {}", RealVar::to_char(real_var.clone())).unwrap();
             },
         };
+    }
+    fn gen_if(&mut self, condition: Expression, consequence: Vec<Statement>, alternative: Vec<Statement>) {
+        let expr = self.gen_expr(Some(condition));
+        match expr {
+            Some(t) => match t {
+                Type::Number    => {},
+                Type::Str       => return,
+            },
+            None    => return,
+        };
+
+        // Pop value from stack
+        writeln!(self.writer, "\tmovsd (%rsp), %xmm0").unwrap();
+        writeln!(self.writer, "\taddq $16, %rsp").unwrap();
+        
+        // Compare xmm0 to 0
+        writeln!(self.writer, "# If statement:").unwrap();
+        writeln!(self.writer, "\txorpd %xmm1, %xmm1").unwrap();
+        writeln!(self.writer, "\tucomisd %xmm0, %xmm1").unwrap();
+        let false_label = self.new_text_label();
+        let done_label = self.new_text_label();
+        writeln!(self.writer, "\tje {}", false_label).unwrap();
+        
+        // Generate then block
+        writeln!(self.writer, "# Then block:").unwrap();
+        for statement in consequence {
+            self.gen_statement(statement);
+        }
+        writeln!(self.writer, "\tjmp {}", done_label).unwrap();
+
+        // Generate else block
+        writeln!(self.writer, "# Else block:").unwrap();
+        writeln!(self.writer, "{}:", false_label).unwrap();
+        for statement in alternative {
+            self.gen_statement(statement);
+        }
+        writeln!(self.writer, "# Done:").unwrap();
+        writeln!(self.writer, "{}:", done_label).unwrap();
     }
     fn gen_rodata_section(&mut self) {
         writeln!(self.writer, "\n.section .rodata").unwrap();

@@ -31,6 +31,7 @@ impl Parser {
     }
     fn parse_statement(&mut self) -> Option<Statement> {
         if self.match_token(vec![TokenKind::Disp]) { return self.parse_disp(); }
+        if self.match_token(vec![TokenKind::If]) { return self.parse_if(); }
         if self.match_token(vec![TokenKind::Newline]) { return None; }
 
         let expr = self.parse_expression();
@@ -173,6 +174,53 @@ impl Parser {
             let expr = self.parse_expression();
             self.consume(TokenKind::RParen, "Expected ')' after expression.");
             return Some(Expression::Grouping(Box::new(expr.unwrap())));
+        }
+
+        None
+    }
+    fn parse_if(&mut self) -> Option<Statement> {
+        let condition = self.parse_expression();
+        match condition {
+            Some(ref v) => {},
+            None    => return None,
+        };
+        self.consume(TokenKind::Newline, "Expected newline after if statement!");
+        let mut then_statements: Vec<Statement> = Vec::new();
+        let mut else_statements: Vec<Statement> = Vec::new();
+        if self.match_token(vec![TokenKind::Then]) {
+            self.consume(TokenKind::Newline, "Expected newline after then statement!");
+            while !self.match_token(vec![TokenKind::Else, TokenKind::End]) {
+                let statement = self.parse_statement();
+                match statement {
+                    Some(s) => then_statements.push(s),
+                    None    => {},
+                };
+            }
+
+            match self.previous().kind {
+                TokenKind::Else => {
+                    self.consume(TokenKind::Newline, "Expected newline after else statement!");
+                    while !self.match_token(vec![TokenKind::End, TokenKind::EOF]) {
+                        let statement = self.parse_statement();
+                        match statement {
+                            Some(s) => else_statements.push(s),
+                            None    => {},
+                        };
+                    }
+                },
+                TokenKind::End => {
+                    return Some(Statement::If { condition: condition.unwrap(), consequence: then_statements, alternative: else_statements });
+                }
+                _ => return None,
+            };
+        }
+        else {
+            let statement = self.parse_statement();
+            match statement {
+                Some(s) => then_statements.push(s),
+                None    => {},
+            };
+            return Some(Statement::If { condition: condition.unwrap(), consequence: then_statements, alternative: else_statements });
         }
 
         None

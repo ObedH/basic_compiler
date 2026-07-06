@@ -26,7 +26,8 @@ pub enum Statement {
     },
     If {
         condition: Expression,
-        body: Vec<Statement>,
+        consequence: Vec<Statement>,
+        alternative: Vec<Statement>,
     },
 }
 
