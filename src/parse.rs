@@ -31,6 +31,7 @@ impl Parser {
     }
     fn parse_statement(&mut self) -> Option<Statement> {
         if self.match_token(vec![TokenKind::Disp]) { return self.parse_disp(); }
+        if self.match_token(vec![TokenKind::Prompt]) { return self.parse_prompt(); }
         if self.match_token(vec![TokenKind::If]) { return self.parse_if(); }
         if self.match_token(vec![TokenKind::For]) { return self.parse_for(); }
         if self.match_token(vec![TokenKind::Newline]) { return None; }
@@ -178,6 +179,12 @@ impl Parser {
         }
 
         None
+    }
+    fn parse_prompt(&mut self) -> Option<Statement> {
+        Some(Statement::Prompt(match self.parse_assign_target() {
+            Some(v) => v,
+            None    => return None,
+        }))
     }
     fn parse_if(&mut self) -> Option<Statement> {
         let condition = self.parse_expression();

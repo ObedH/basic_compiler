@@ -20,6 +20,7 @@ impl Program {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     Display(Option<Expression>),
+    Prompt(AssignTarget),
     Assign {
         target: AssignTarget,
         source: Expression,

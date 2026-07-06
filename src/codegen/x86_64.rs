@@ -47,11 +47,13 @@ impl CodeGeneratorX86_64 {
     }
     fn generate(&mut self, program: Program) {
 
-        self.string_literals.push((".LC_NUM_FMT".to_string(), "%f\\n".to_string()));
-        self.string_literals.push((".LC_STR_FMT".to_string(), "%s\\n".to_string()));
+        self.string_literals.push((".LC_NUM_PRINT_FMT".to_string(), "%f\\n".to_string()));
+        self.string_literals.push((".LC_STR_PRINT_FMT".to_string(), "%s\\n".to_string()));
+        self.string_literals.push((".LC_NUM_SCAN_FMT".to_string(), "%lf".to_string()));
         self.new_float_label(1.0);
         
         self.gen_data_section();
+        self.gen_bss_section();
         self.gen_text_section(program);
         self.gen_rodata_section();
     }
@@ -62,6 +64,10 @@ impl CodeGeneratorX86_64 {
             let letter = byte as char;
             writeln!(self.writer, "VAR_{}:\t.double 0.0", letter).unwrap();
         }
+    }
+    fn gen_bss_section(&mut self) {
+        writeln!(self.writer, "\n.section .bss").unwrap();
+        writeln!(self.writer, "\t.comm .LC_NUM_SCAN_BUF, 8, 8").unwrap();
     }
     fn gen_text_section(&mut self, program: Program) {
         writeln!(self.writer, "\n.section .text").unwrap();
@@ -85,6 +91,7 @@ impl CodeGeneratorX86_64 {
     fn gen_statement(&mut self, statement: Statement) {
         match statement {
             Statement::Display(val)                                 => self.gen_disp(val),
+            Statement::Prompt(var)                                  => self.gen_prompt(var),
             Statement::Assign { target, source }                    => self.gen_assign(target, source),
             Statement::If { condition, consequence, alternative }   => self.gen_if(condition, consequence, alternative),
             Statement::For { variable, min, max, step, body }            => self.gen_for(variable, min, max, step, body),
@@ -153,6 +160,7 @@ impl CodeGeneratorX86_64 {
             BinaryOperator::Sub         => writeln!(self.writer, "\tsubsd %xmm0, %xmm1").unwrap(),
             BinaryOperator::Mul         => writeln!(self.writer, "\tmulsd %xmm0, %xmm1").unwrap(),
             BinaryOperator::Div         => writeln!(self.writer, "\tdivsd %xmm0, %xmm1").unwrap(),
+            BinaryOperator::Equal       => writeln!(self.writer, "\tcmpsd $0, %xmm0, %xmm1\n\tmovsd .LC0(%rip), %xmm2\n\tandpd %xmm2, %xmm1").unwrap(),
             _                           => return None,
         };
 
@@ -165,6 +173,7 @@ impl CodeGeneratorX86_64 {
             BinaryOperator::Sub         => writeln!(self.writer, "# Evaluated: Sub").unwrap(),
             BinaryOperator::Mul         => writeln!(self.writer, "# Evaluated: Mul").unwrap(),
             BinaryOperator::Div         => writeln!(self.writer, "# Evaluated: Div").unwrap(),
+            BinaryOperator::Equal       => writeln!(self.writer, "# Evaluated: Equal").unwrap(),
             _                           => return None,
         };
 
@@ -203,17 +212,27 @@ impl CodeGeneratorX86_64 {
         writeln!(self.writer, "\tmovsd (%rsp), %xmm0").unwrap();
         writeln!(self.writer, "\taddq $16, %rsp").unwrap();
 
-        writeln!(self.writer, "\tlea .LC_NUM_FMT(%rip), %rdi").unwrap();
+        writeln!(self.writer, "\tlea .LC_NUM_PRINT_FMT(%rip), %rdi").unwrap();
         writeln!(self.writer, "\tmov $1, %al").unwrap();
         writeln!(self.writer, "\tcall printf").unwrap();
         writeln!(self.writer, "# Printed a number").unwrap();
     }
     fn gen_str_disp(&mut self) {
         writeln!(self.writer, "\tpop %rsi").unwrap();
-        writeln!(self.writer, "\tlea .LC_STR_FMT(%rip), %rdi").unwrap();
+        writeln!(self.writer, "\tlea .LC_STR_PRINT_FMT(%rip), %rdi").unwrap();
         writeln!(self.writer, "\tmov $0, %al").unwrap();
         writeln!(self.writer, "\tcall printf").unwrap();
         writeln!(self.writer, "# Printed a string").unwrap();
+    }
+    fn gen_prompt(&mut self, var: AssignTarget) {
+        writeln!(self.writer, "\tleaq .LC_NUM_SCAN_FMT(%rip), %rdi").unwrap();
+        writeln!(self.writer, "\tleaq .LC_NUM_SCAN_BUF(%rip), %rsi").unwrap();
+        writeln!(self.writer, "\tmovb $0, %al").unwrap();
+        writeln!(self.writer, "\tcall scanf").unwrap();
+        writeln!(self.writer, "\tmovsd .LC_NUM_SCAN_BUF(%rip), %xmm0").unwrap();
+        writeln!(self.writer, "\tmovsd %xmm0, VAR_{}(%rip)", RealVar::to_char(match var {
+            AssignTarget::RealVariable(v) => v
+        })).unwrap();
     }
     fn gen_assign(&mut self, target: AssignTarget, source: Expression) {
         let expr = self.gen_expr(Some(source));

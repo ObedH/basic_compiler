@@ -134,6 +134,7 @@ impl<'a> Lexer<'a> {
             "Repeat"=> TokenKind::Repeat,
             "End"   => TokenKind::End,
             "Pause" => TokenKind::Pause,
+            "Prompt"=> TokenKind::Prompt,
             "Lbl"   => TokenKind::Lbl,
             "Goto"  => TokenKind::Goto,
             "Disp"  => TokenKind::Disp,
