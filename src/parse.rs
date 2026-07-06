@@ -207,6 +207,7 @@ impl Parser {
                             None    => {},
                         };
                     }
+                    return Some(Statement::If { condition: condition.unwrap(), consequence: then_statements, alternative: else_statements });
                 },
                 TokenKind::End => {
                     return Some(Statement::If { condition: condition.unwrap(), consequence: then_statements, alternative: else_statements });
