@@ -161,6 +161,11 @@ impl CodeGeneratorX86_64 {
             BinaryOperator::Mul         => writeln!(self.writer, "\tmulsd %xmm0, %xmm1").unwrap(),
             BinaryOperator::Div         => writeln!(self.writer, "\tdivsd %xmm0, %xmm1").unwrap(),
             BinaryOperator::Equal       => writeln!(self.writer, "\tcmpsd $0, %xmm0, %xmm1\n\tmovsd .LC0(%rip), %xmm2\n\tandpd %xmm2, %xmm1").unwrap(),
+            BinaryOperator::NotEqual    => writeln!(self.writer, "\tcmpsd $4, %xmm0, %xmm1\n\tmovsd .LC0(%rip), %xmm2\n\tandpd %xmm2, %xmm1").unwrap(),
+            BinaryOperator::Greater     => writeln!(self.writer, "\tcmpsd $6, %xmm0, %xmm1\n\tmovsd .LC0(%rip), %xmm2\n\tandpd %xmm2, %xmm1").unwrap(),
+            BinaryOperator::Less        => writeln!(self.writer, "\tcmpsd $1, %xmm0, %xmm1\n\tmovsd .LC0(%rip), %xmm2\n\tandpd %xmm2, %xmm1").unwrap(),
+            BinaryOperator::GreaterEqual=> writeln!(self.writer, "\tcmpsd $5, %xmm0, %xmm1\n\tmovsd .LC0(%rip), %xmm2\n\tandpd %xmm2, %xmm1").unwrap(),
+            BinaryOperator::LessEqual   => writeln!(self.writer, "\tcmpsd $2, %xmm0, %xmm1\n\tmovsd .LC0(%rip), %xmm2\n\tandpd %xmm2, %xmm1").unwrap(),
             _                           => return None,
         };
 
@@ -174,6 +179,11 @@ impl CodeGeneratorX86_64 {
             BinaryOperator::Mul         => writeln!(self.writer, "# Evaluated: Mul").unwrap(),
             BinaryOperator::Div         => writeln!(self.writer, "# Evaluated: Div").unwrap(),
             BinaryOperator::Equal       => writeln!(self.writer, "# Evaluated: Equal").unwrap(),
+            BinaryOperator::NotEqual    => writeln!(self.writer, "# Evaluated: Not Equal").unwrap(),
+            BinaryOperator::Greater     => writeln!(self.writer, "# Evaluated: Greater").unwrap(),
+            BinaryOperator::Less        => writeln!(self.writer, "# Evaluated: Less").unwrap(),
+            BinaryOperator::GreaterEqual=> writeln!(self.writer, "# Evaluated: GreaterEqual").unwrap(),
+            BinaryOperator::LessEqual   => writeln!(self.writer, "# Evaluated: Less Equal").unwrap(),
             _                           => return None,
         };
 
