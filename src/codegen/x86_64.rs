@@ -49,6 +49,7 @@ impl CodeGeneratorX86_64 {
 
         self.string_literals.push((".LC_NUM_FMT".to_string(), "%f\\n".to_string()));
         self.string_literals.push((".LC_STR_FMT".to_string(), "%s\\n".to_string()));
+        self.new_float_label(1.0);
         
         self.gen_data_section();
         self.gen_text_section(program);
@@ -86,6 +87,7 @@ impl CodeGeneratorX86_64 {
             Statement::Display(val)                                 => self.gen_disp(val),
             Statement::Assign { target, source }                    => self.gen_assign(target, source),
             Statement::If { condition, consequence, alternative }   => self.gen_if(condition, consequence, alternative),
+            Statement::For { variable, min, max, step, body }            => self.gen_for(variable, min, max, step, body),
             _                       => {}
         };
     }
@@ -254,7 +256,7 @@ impl CodeGeneratorX86_64 {
         // Compare xmm0 to 0
         writeln!(self.writer, "# If statement:").unwrap();
         writeln!(self.writer, "\txorpd %xmm1, %xmm1").unwrap();
-        writeln!(self.writer, "\tucomisd %xmm0, %xmm1").unwrap();
+        writeln!(self.writer, "\tcomisd %xmm0, %xmm1").unwrap();
         let false_label = self.new_text_label();
         let done_label = self.new_text_label();
         writeln!(self.writer, "\tje {}", false_label).unwrap();
@@ -274,6 +276,97 @@ impl CodeGeneratorX86_64 {
         }
         writeln!(self.writer, "# Done:").unwrap();
         writeln!(self.writer, "{}:", done_label).unwrap();
+    }
+    fn gen_for(&mut self, var: RealVar, min: Expression, max: Expression, step: Option<Expression>, body: Vec<Statement>) {
+        let var_char = RealVar::to_char(var.clone());
+
+        // 1. Generate and save MIN value
+        if self.gen_expr(Some(min)).is_none() { return; }
+        writeln!(self.writer, "\tmovsd (%rsp), %xmm0").unwrap();
+        writeln!(self.writer, "\taddq $16, %rsp").unwrap(); // Clear min frame
+        writeln!(self.writer, "\tmovsd %xmm0, VAR_{}(%rip)", var_char).unwrap();
+
+        // 2. Generate MAX value (Leaves it on stack at (%rsp))
+        if self.gen_expr(Some(max)).is_none() { return; }
+        writeln!(self.writer, "\tmovsd (%rsp), %xmm3").unwrap();
+        writeln!(self.writer, "\taddq $16, %rsp").unwrap(); // Clear max frame
+
+        // 3. Allocate a uniform 48-byte loop tracking context frame (16-byte aligned)
+        writeln!(self.writer, "\tsubq $48, %rsp").unwrap();
+        writeln!(self.writer, "\tmovsd %xmm3, 32(%rsp)").unwrap(); // Keep MAX safe at offset 32
+
+        // 4. Generate STEP value and Direction Flag
+        match step {
+            Some(e) => {
+                if self.gen_expr(Some(e)).is_none() { return; }
+                writeln!(self.writer, "\tmovsd (%rsp), %xmm4").unwrap();
+                writeln!(self.writer, "\taddq $16, %rsp").unwrap(); // Clear step frame
+                
+                writeln!(self.writer, "\tmovsd %xmm4, 16(%rsp)").unwrap(); // Save STEP at offset 16
+                writeln!(self.writer, "\tmovmskpd %xmm4, %eax").unwrap();
+                writeln!(self.writer, "\tand $1, %eax").unwrap();
+                writeln!(self.writer, "\tmovl %eax, 0(%rsp)").unwrap();   // Save DIRECTION at offset 0
+            },
+            None => {
+                writeln!(self.writer, "\tmovsd .LC0(%rip), %xmm4").unwrap();
+                writeln!(self.writer, "\tmovsd %xmm4, 16(%rsp)").unwrap(); // Save Step 1.0 at offset 16
+                writeln!(self.writer, "\tmovl $0, 0(%rsp)").unwrap();      // Save Forward (0) at offset 0
+            },
+        };
+
+        // STACK LAYOUT CONFIGURATION:
+        // 0(%rsp)  = Direction integer (4 bytes active, 12 bytes alignment padding)
+        // 16(%rsp) = Step float value (8 bytes active, 8 bytes alignment padding)
+        // 32(%rsp) = Max float value (8 bytes active, 8 bytes alignment padding)
+
+        let loop_body = self.new_text_label();
+        let loop_check = self.new_text_label();
+        let neg_label = self.new_text_label();
+        let done_label = self.new_text_label();
+
+        writeln!(self.writer, "\tjmp {}", loop_check).unwrap();
+        writeln!(self.writer, "# Starting for loop by jumping to check").unwrap();
+
+        // --- LOOP BODY ---
+        writeln!(self.writer, "{}:", loop_body).unwrap();
+        for statement in body {
+            self.gen_statement(statement);
+        }
+
+        // --- INCREMENTATION ---
+        writeln!(self.writer, "# Incrementation").unwrap();
+        writeln!(self.writer, "\tmovsd 16(%rsp), %xmm4").unwrap(); // SAFE RELOAD: step from memory
+        writeln!(self.writer, "\tmovsd VAR_{}(%rip), %xmm0", var_char).unwrap();
+        writeln!(self.writer, "\taddsd %xmm4, %xmm0").unwrap();
+        writeln!(self.writer, "\tmovsd %xmm0, VAR_{}(%rip)", var_char).unwrap();
+
+        // --- CONDITION CHECK ---
+        writeln!(self.writer, "# Loop checking").unwrap();
+        writeln!(self.writer, "{}:", loop_check).unwrap();
+
+        // Peek direction flag without moving %rsp
+        writeln!(self.writer, "\tmovl 0(%rsp), %eax").unwrap(); 
+        writeln!(self.writer, "\ttest %eax, %eax").unwrap();
+        writeln!(self.writer, "\tjnz {}", neg_label).unwrap();
+
+        // Forward Loop: Continue if Max >= Current Value
+        writeln!(self.writer, "\tmovsd 32(%rsp), %xmm3").unwrap();              // SAFE RELOAD: Max
+        writeln!(self.writer, "\tmovsd VAR_{}(%rip), %xmm0", var_char).unwrap(); // SAFE RELOAD: Current
+        writeln!(self.writer, "\tcomisd %xmm0, %xmm3").unwrap();                 // Compare Max vs Current
+        writeln!(self.writer, "\tjae {}", loop_body).unwrap();                   // Jump back if Max >= Current
+        writeln!(self.writer, "\tjmp {}", done_label).unwrap();
+
+        // Backward Loop: Continue if Current Value >= Max
+        writeln!(self.writer, "{}:", neg_label).unwrap();
+        writeln!(self.writer, "\tmovsd 32(%rsp), %xmm3").unwrap();              // SAFE RELOAD: Max
+        writeln!(self.writer, "\tmovsd VAR_{}(%rip), %xmm0", var_char).unwrap(); // SAFE RELOAD: Current
+        writeln!(self.writer, "\tcomisd %xmm3, %xmm0").unwrap();                 // Compare Current vs Max
+        writeln!(self.writer, "\tjae {}", loop_body).unwrap();                   // Jump back if Current >= Max
+
+        // --- LOOP DONE CLEANUP ---
+        writeln!(self.writer, "{}:", done_label).unwrap();
+        writeln!(self.writer, "\taddq $48, %rsp").unwrap(); // Clear the dedicated loop frame completely
+        writeln!(self.writer, "# Loop done").unwrap();
     }
     fn gen_rodata_section(&mut self) {
         writeln!(self.writer, "\n.section .rodata").unwrap();

@@ -6,8 +6,8 @@ use basic_compiler::parse::Parser;
 use basic_compiler::codegen::x86_64::CodeGeneratorX86_64;
 
 fn main() {
-    let input_path: &str = "tests/nested_if.b";
-    let output_path: &str = "asm/nested_if.s";
+    let input_path: &str = "tests/for.b";
+    let output_path: &str = "asm/for.s";
     println!("Opening source file: {}", input_path);
 
     let file: String = fs::read_to_string(input_path).expect(&format!("Should be able to open {}", input_path));

@@ -32,6 +32,7 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Statement> {
         if self.match_token(vec![TokenKind::Disp]) { return self.parse_disp(); }
         if self.match_token(vec![TokenKind::If]) { return self.parse_if(); }
+        if self.match_token(vec![TokenKind::For]) { return self.parse_for(); }
         if self.match_token(vec![TokenKind::Newline]) { return None; }
 
         let expr = self.parse_expression();
@@ -225,6 +226,51 @@ impl Parser {
         }
 
         None
+    }
+    fn parse_for(&mut self) -> Option<Statement> {
+        self.consume(TokenKind::LParen, "Expected opening parenthesis a for keyword!");
+        let var = match self.advance().kind {
+            TokenKind::Var(c)   => match RealVar::from_char(c) {
+                Some(cha)   => cha,
+                None        => return None,
+            },
+            _                   => return None,
+        };
+        self.consume(TokenKind::Comma, "Expected a comma between for loop arguments!");
+        let min = match self.parse_expression() {
+            Some(e) => e,
+            None    => return None,
+        };
+        self.consume(TokenKind::Comma, "Expected a comma between for loop arguments!");
+        let max = match self.parse_expression() {
+            Some(e) => e,
+            None    => return None,
+        };
+        let step = if self.match_token(vec![TokenKind::Comma]) {
+            self.parse_expression()
+        }
+        else {
+            None
+        };
+        self.match_token(vec![TokenKind::RParen]);
+        self.consume(TokenKind::Newline, "Expected newline after a for statement!");
+
+        let mut body: Vec<Statement> = Vec::new();
+
+        while !self.match_token(vec![TokenKind::End, TokenKind::EOF]) {
+            match self.parse_statement() {
+                Some(s) => body.push(s),
+                None    => {},
+            };
+        }
+        match self.previous().kind {
+            TokenKind::End => {},
+            TokenKind::EOF => body.clear(),
+            _              => return None,
+        };
+        self.consume(TokenKind::Newline, "Expected newline after an end statement!");
+
+        Some(Statement::For { variable: var, min: min, max: max, step: step, body: body })
     }
     fn parse_assign_target(&mut self) -> Option<AssignTarget> {
         let target = self.advance();

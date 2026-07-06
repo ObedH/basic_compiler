@@ -29,6 +29,13 @@ pub enum Statement {
         consequence: Vec<Statement>,
         alternative: Vec<Statement>,
     },
+    For {
+        variable: RealVar,
+        min: Expression,
+        max: Expression,
+        step: Option<Expression>,
+        body: Vec<Statement>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
