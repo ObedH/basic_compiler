@@ -47,8 +47,8 @@ impl CodeGeneratorX86_64 {
     }
     fn generate(&mut self, program: Program) {
 
-        self.string_literals.push((".LC_NUM_PRINT_FMT".to_string(), "%f\\n".to_string()));
-        self.string_literals.push((".LC_STR_PRINT_FMT".to_string(), "%s\\n".to_string()));
+        self.string_literals.push((".LC_NUM_PRINT_FMT".to_string(), "%f".to_string()));
+        self.string_literals.push((".LC_STR_PRINT_FMT".to_string(), "%s".to_string()));
         self.string_literals.push((".LC_NUM_SCAN_FMT".to_string(), "%lf".to_string()));
         self.new_float_label(1.0);
         
@@ -98,20 +98,20 @@ impl CodeGeneratorX86_64 {
             _                       => {}
         };
     }
-    fn gen_disp(&mut self, val: Option<Expression>) {
-        match val {
-            Some(_) => {
-                let expr_type = self.gen_expr(val);
-                match expr_type {
-                    Some(t) => match t {
-                        Type::Number => self.gen_num_disp(),
-                        Type::Str    => self.gen_str_disp(),
-                    },
-                    None => writeln!(self.writer, "# Error: Expression is none.").unwrap(),
-                };
-            },
-            None => {},
-        };
+    fn gen_disp(&mut self, val: Vec<Expression>) {
+        for expr in val {
+            let expr_type = self.gen_expr(Some(expr));
+            match expr_type {
+                Some(t) => match t {
+                    Type::Number => self.gen_num_disp(),
+                    Type::Str    => self.gen_str_disp(),
+                },
+                None => writeln!(self.writer, "# Error: Expression is none.").unwrap(),
+            };
+        }
+        writeln!(self.writer, "\txorq %rax, %rax").unwrap();
+        writeln!(self.writer, "\tmovq $10, %rdi").unwrap();
+        writeln!(self.writer, "\tcall putchar").unwrap();
     }
     fn gen_expr(&mut self, val: Option<Expression>) -> Option<Type> {
         match val {

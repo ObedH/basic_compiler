@@ -52,10 +52,25 @@ impl Parser {
         None
     }
     fn parse_disp(&mut self) -> Option<Statement> {
-        let value = self.parse_expression();
+        let mut values: Vec<Expression> = Vec::new();
+        loop {
+            let expr = self.parse_expression();
+            match expr {
+                Some(v) => {
+                    values.push(v);
+                    if self.match_token(vec![TokenKind::Comma]) {
+                        continue;
+                    }
+                    else {
+                        break;
+                    }
+                },
+                None    => return None,
+            };
+        };
         self.consume(TokenKind::Newline, "Expected newline!");
 
-        Some(Statement::Display(value))
+        Some(Statement::Display(values))
     }
     fn parse_expression(&mut self) -> Option<Expression> {
         self.parse_or()
